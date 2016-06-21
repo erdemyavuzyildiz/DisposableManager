@@ -3,11 +3,11 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace PingTest
+namespace PingFunctions
 {
 	public static class DisposableManager
 	{
-		public static ConcurrentDictionary<Guid, List<IDisposable>> DisposablesConcurrentDictionary { get; set; } =
+		private static ConcurrentDictionary<Guid, List<IDisposable>> DisposablesConcurrentDictionary { get; } =
 			new ConcurrentDictionary<Guid, List<IDisposable>>();
 
 		public static void DisposeAll(Guid guid)
@@ -18,7 +18,10 @@ namespace PingTest
 				{
 					try
 					{
-						disposable.Dispose();
+						if (disposable != null)
+						{
+							disposable.Dispose();
+						}
 					}
 					catch (Exception)
 					{
@@ -27,16 +30,6 @@ namespace PingTest
 				DisposablesConcurrentDictionary.Clear();
 			}
 
-			foreach (var webdriver in DisposablesConcurrentDictionary.SelectMany(x => x.Value))
-			{
-				try
-				{
-					webdriver.Dispose();
-				}
-				catch (Exception)
-				{
-				}
-			}
 			DisposablesConcurrentDictionary.Clear();
 		}
 
@@ -46,7 +39,10 @@ namespace PingTest
 			{
 				try
 				{
-					disposable.Dispose();
+					if (disposable != null)
+					{
+						disposable.Dispose();
+					}
 				}
 				catch (Exception)
 				{
@@ -55,7 +51,12 @@ namespace PingTest
 			DisposablesConcurrentDictionary.Clear();
 		}
 
-		public static void Add(Guid guid, IDisposable disposable)
+		public static Guid Add(IDisposable disposable)
+		{
+			return Add(disposable, Guid.NewGuid());
+		}
+
+		public static Guid Add(IDisposable disposable, Guid guid)
 		{
 			if (DisposablesConcurrentDictionary.ContainsKey(guid))
 			{
@@ -66,12 +67,14 @@ namespace PingTest
 			{
 				DisposablesConcurrentDictionary.TryAdd(guid, new List<IDisposable> {disposable});
 			}
+
+			return guid;
 		}
 
 		public static IDisposable GetNewObject<T>(T webDriverType, params object[] objects) where T : IDisposable
 		{
 			var driver = (IDisposable) Activator.CreateInstance(typeof(T), objects);
-			Add(Guid.NewGuid(), driver);
+			Add(driver, Guid.NewGuid());
 
 			return driver;
 		}
