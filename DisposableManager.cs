@@ -1,14 +1,13 @@
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 
 namespace PingFunctions
 {
 	public static class DisposableManager
 	{
-		private static ConcurrentDictionary<Guid, List<IDisposable>> DisposablesConcurrentDictionary { get; } =
-			new ConcurrentDictionary<Guid, List<IDisposable>>();
+		private static ConcurrentDictionary<Guid, ConcurrentDictionary<IDisposable, byte>> DisposablesConcurrentDictionary {
+			get; } = new ConcurrentDictionary<Guid, ConcurrentDictionary<IDisposable, byte>>();
 
 		public static void DisposeAll(Guid guid)
 		{
@@ -18,13 +17,14 @@ namespace PingFunctions
 				{
 					try
 					{
-						if (disposable != null)
+						if (disposable.Key != null)
 						{
-							disposable.Dispose();
+							disposable.Key.Dispose();
 						}
 					}
 					catch (Exception)
 					{
+						// ignored
 					}
 				}
 				DisposablesConcurrentDictionary.Clear();
@@ -39,13 +39,14 @@ namespace PingFunctions
 			{
 				try
 				{
-					if (disposable != null)
+					if (disposable.Key != null)
 					{
-						disposable.Dispose();
+						disposable.Key.Dispose();
 					}
 				}
 				catch (Exception)
 				{
+					// ignored
 				}
 			}
 			DisposablesConcurrentDictionary.Clear();
@@ -61,11 +62,14 @@ namespace PingFunctions
 			if (DisposablesConcurrentDictionary.ContainsKey(guid))
 			{
 				var existing = DisposablesConcurrentDictionary.SingleOrDefault(x => x.Key == guid);
-				existing.Value.Add(disposable);
+				existing.Value.TryAdd(disposable, 0);
 			}
 			else
 			{
-				DisposablesConcurrentDictionary.TryAdd(guid, new List<IDisposable> {disposable});
+				var newDict = new ConcurrentDictionary<IDisposable, byte>();
+				newDict.TryAdd(disposable, 0);
+
+				DisposablesConcurrentDictionary.TryAdd(guid, newDict);
 			}
 
 			return guid;
